@@ -1,0 +1,16 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - venv:/workspace/.venv
+    working_dir: /workspace
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    command: sleep infinity
+
+volumes:
+  venv:

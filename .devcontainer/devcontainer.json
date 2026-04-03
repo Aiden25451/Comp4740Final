@@ -1,0 +1,41 @@
+{
+  "name": "Comp4740 Dev Container",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+
+  "hostRequirements": {
+    "gpu": "optional"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylint",
+        "ms-python.black-formatter",
+        "eamodio.gitlens",
+        "mechatroner.rainbow-csv",
+        "percy.vscode-pydata-viewer",
+        "tonybaloney.vscode-pets"
+      ],
+      "settings": {
+        "files.watcherExclude": {
+          "**/.git/**": true,
+          "**/.venv/**": true
+        },
+        "python.analysis.extraPaths": [
+          "/workspace/.venv/lib/python3.12/site-packages"
+        ],
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        }
+      }
+    }
+  },
+
+  "remoteUser": "devuser",
+  "postStartCommand": "/workspace/.venv/bin/pip install -r requirements.txt"
+}

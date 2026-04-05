@@ -12,39 +12,31 @@ from torch_geometric.data import Data
 
 
 def superpixel_features(img, segments):
-    """
-    Compute per-superpixel features (mean RGB colour + centroid x/y).
-
-    Parameters
-    ----------
-    img      : np.ndarray, shape (H, W, 3), uint8
-    segments : np.ndarray, shape (H, W), int  – SLIC output
-
-    Returns
-    -------
-    features : np.ndarray, shape (num_superpixels, 5)
-                columns: [mean_r, mean_g, mean_b, centre_x, centre_y]
-                All values are normalised to [0, 1].
-    """
-    h, w = segments.shape
     num_sp = segments.max() + 1
+    h, w = segments.shape
 
-    features = np.zeros((num_sp, 5), dtype=np.float32)
+    flat_seg = segments.ravel()
+    flat_img = img.reshape(-1, 3).astype(np.float32) / 255.0
 
-    for sp_id in range(num_sp):
-        mask = segments == sp_id
-        if mask.sum() == 0:
-            continue
-        # mean colour
-        mean_rgb = img[mask].mean(axis=0) / 255.0  # shape (3,)
-        # centroid
-        ys, xs = np.where(mask)
-        cx = xs.mean() / w
-        cy = ys.mean() / h
+    # sum RGB and pixel counts per superpixel
+    rgb_sum = np.zeros((num_sp, 3), dtype=np.float32)
+    counts = np.zeros(num_sp, dtype=np.float32)
+    np.add.at(rgb_sum, flat_seg, flat_img)
+    np.add.at(counts, flat_seg, 1)
 
-        features[sp_id] = [mean_rgb[0], mean_rgb[1], mean_rgb[2], cx, cy]
+    mean_rgb = rgb_sum / counts[:, None]
 
-    return features
+    # centroids
+    ys, xs = np.mgrid[0:h, 0:w]
+    cx_sum = np.zeros(num_sp, dtype=np.float32)
+    cy_sum = np.zeros(num_sp, dtype=np.float32)
+    np.add.at(cx_sum, flat_seg, xs.ravel())
+    np.add.at(cy_sum, flat_seg, ys.ravel())
+
+    cx = cx_sum / counts / w
+    cy = cy_sum / counts / h
+
+    return np.column_stack([mean_rgb, cx, cy])
 
 
 def superpixels_to_graph(img, segments):
@@ -104,11 +96,26 @@ def graph_to_data(node_features, edge_index, label):
     return Data(x=x, edge_index=edge_index, y=y)
 
 
+def tokenize_graph(batch):
+    """Apply graph conversion to a batch of images with SLIC segments."""
+    node_features_list = []
+    edge_index_list = []
+    for pil_img, seg in zip(batch["image"], batch["slic"]):
+        img_np = np.array(pil_img.convert("RGB"))
+        seg_np = np.array(seg)
+        nf, ei = superpixels_to_graph(img_np, seg_np)
+        node_features_list.append(nf)
+        edge_index_list.append(ei)
+    return {"node_features": node_features_list, "edge_index": edge_index_list}
+
+
 def graph_convert_example():
     # Example usage
     dataset = load_dataset("Simezu/brain-tumour-MRI-scan", split="train")
     dataset = dataset.train_test_split(test_size=10, train_size=10, seed=1)
-    dataset = dataset.map(tokenize, batched=True, batch_size=64, num_proc=16)
+    dataset = dataset.map(
+        tokenize, batched=True, batch_size=64, num_proc=16, load_from_cache_file=False
+    )
 
     # Save images
     first_img = np.array(dataset["train"][0]["image"].convert("RGB"))

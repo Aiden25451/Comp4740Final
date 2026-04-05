@@ -6,20 +6,17 @@ from datasets import load_dataset
 from torch_geometric.loader import DataLoader
 
 from gnn import SimpleGNN
-from graph_convert import superpixels_to_graph, graph_to_data
+from graph_convert import superpixels_to_graph, graph_to_data, tokenize_graph
 from process_dataset import tokenize, run_slic
+from config import config
 
 
 def build_pyg_dataset(hf_dataset):
-    """Convert a HuggingFace dataset split into a list of PyG Data objects."""
     data_list = []
     for sample in hf_dataset:
-        img = np.array(sample["image"].convert("RGB"))
-        seg = np.array(sample["slic"])
-        label = sample["label"]
-        node_features, edge_index = superpixels_to_graph(img, seg)
-        data = graph_to_data(node_features, edge_index, label)
-        data_list.append(data)
+        nf = np.array(sample["node_features"])
+        ei = np.array(sample["edge_index"])
+        data_list.append(graph_to_data(nf, ei, sample["label"]))
     return data_list
 
 
@@ -53,12 +50,6 @@ def evaluate(model, loader, device):
 
 def main():
     # ── Config ────────────────────────────────────────────────────────────
-    TRAIN_SIZE = 200
-    TEST_SIZE = 50
-    SEGMENTS = 200
-    BATCH_SIZE = 32
-    EPOCHS = 20
-    LR = 1e-3
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -66,9 +57,18 @@ def main():
     print("Loading dataset...")
     dataset = load_dataset("Simezu/brain-tumour-MRI-scan", split="train")
     dataset = dataset.train_test_split(
-        test_size=TEST_SIZE, train_size=TRAIN_SIZE, seed=1
+        test_size=config["test_size"], train_size=config["train_size"], seed=1
     )
-    dataset = dataset.map(tokenize, batched=True, batch_size=64, num_proc=8)
+    dataset = dataset.map(
+        tokenize, batched=True, batch_size=32, num_proc=24, load_from_cache_file=False
+    )
+    dataset = dataset.map(
+        tokenize_graph,
+        batched=True,
+        batch_size=32,
+        num_proc=24,
+        load_from_cache_file=False,
+    )
 
     # ── 2. Build PyG datasets ─────────────────────────────────────────────
     print("Converting to graphs...")
@@ -76,18 +76,18 @@ def main():
     test_data = build_pyg_dataset(dataset["test"])
     print(f"  Train graphs: {len(train_data)}, Test graphs: {len(test_data)}")
 
-    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=config["batch_size"], shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=config["batch_size"], shuffle=False)
 
     # ── 3. Model ──────────────────────────────────────────────────────────
     model = SimpleGNN(in_channels=5, hidden=64, num_classes=4).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
     criterion = nn.CrossEntropyLoss()
 
     # ── 4. Train loop ─────────────────────────────────────────────────────
     print("\nEpoch | Loss   | Test Acc")
     print("------+--------+---------")
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, config["epochs"] + 1):
         loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         acc = evaluate(model, test_loader, device)
         print(f"  {epoch:3d} | {loss:.4f} | {acc:.4f}")

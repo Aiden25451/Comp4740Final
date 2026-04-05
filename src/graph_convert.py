@@ -7,6 +7,8 @@ from datasets import load_dataset
 from skimage.segmentation import mark_boundaries
 import matplotlib.pyplot as plt
 import networkx as nx
+import torch
+from torch_geometric.data import Data
 
 
 def superpixel_features(img, segments):
@@ -80,6 +82,26 @@ def superpixels_to_graph(img, segments):
     edge_index = np.array([src_nodes, dst_nodes], dtype=np.int64)  # (2, E)
 
     return node_features, edge_index
+
+
+def graph_to_data(node_features, edge_index, label):
+    """
+    Convert numpy graph arrays into a PyTorch Geometric Data object.
+
+    Parameters
+    ----------
+    node_features : np.ndarray, shape (num_nodes, 5)
+    edge_index    : np.ndarray, shape (2, num_edges)
+    label         : int  – class index (e.g. 0 or 1)
+
+    Returns
+    -------
+    torch_geometric.data.Data
+    """
+    x = torch.tensor(node_features, dtype=torch.float)
+    edge_index = torch.tensor(edge_index, dtype=torch.long)
+    y = torch.tensor([label], dtype=torch.long)
+    return Data(x=x, edge_index=edge_index, y=y)
 
 
 def graph_convert_example():

@@ -33,12 +33,13 @@ def tokenize(batch):
     return {"slic": results}
 
 
-dataset = load_dataset("Simezu/brain-tumour-MRI-scan", split="train")
-dataset = dataset.train_test_split(test_size=100, train_size=2000, seed=1)
-dataset = dataset.map(tokenize, batched=True, batch_size=64, num_proc=16)
+def preprocess_dataset_example():
+    dataset = load_dataset("Simezu/brain-tumour-MRI-scan", split="train")
+    dataset = dataset.train_test_split(test_size=100, train_size=2000, seed=1)
+    dataset = dataset.map(tokenize, batched=True, batch_size=64, num_proc=16)
 
-# Save images
-first_img = np.array(dataset["train"][0]["image"])
-first_seg = dataset["train"][0]["slic"]
-plt.imsave("output/original.png", first_img)
-plt.imsave("output/slic.png", first_seg)
+    # Save images
+    first_img = np.array(dataset["train"][0]["image"])
+    first_seg = dataset["train"][0]["slic"]
+    plt.imsave("output/original.png", first_img)
+    plt.imsave("output/slic.png", first_seg)

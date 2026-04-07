@@ -32,7 +32,7 @@ def tokenize(batch):
         results.append(seg)
 
     # return something so HF is satisfied
-    return {"slic": results}
+    return {"superpixels": results}
 
 
 def preprocess_dataset_example():
@@ -42,9 +42,9 @@ def preprocess_dataset_example():
 
     # Save images
     first_img = np.array(dataset["train"][0]["image"])
-    first_seg = dataset["train"][0]["slic"]
+    first_seg = dataset["train"][0]["superpixels"]
     plt.imsave("output/original.png", first_img)
-    plt.imsave("output/slic.png", first_seg)
+    plt.imsave("output/superpixels.png", first_seg)
 
 
-preprocess_dataset_example()
+# preprocess_dataset_example()

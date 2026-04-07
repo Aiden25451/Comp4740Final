@@ -36,7 +36,20 @@ def superpixel_features(img, segments):
     cx = cx_sum / counts / w
     cy = cy_sum / counts / h
 
-    return np.column_stack([mean_rgb, cx, cy])
+    # grayscale variance per superpixel (texture cue)
+    gray = img.mean(axis=2).astype(np.float32) / 255.0
+    flat_gray = gray.ravel()
+
+    gray_sum = np.zeros(num_sp, dtype=np.float32)
+    gray_sq_sum = np.zeros(num_sp, dtype=np.float32)
+
+    np.add.at(gray_sum, flat_seg, flat_gray)
+    np.add.at(gray_sq_sum, flat_seg, flat_gray**2)
+
+    mean_gray = gray_sum / counts
+    var_gray = gray_sq_sum / counts - mean_gray**2
+
+    return np.column_stack([mean_rgb, cx, cy, var_gray])
 
 
 def superpixels_to_graph(img, segments):
@@ -100,7 +113,7 @@ def tokenize_graph(batch):
     """Apply graph conversion to a batch of images with SLIC segments."""
     node_features_list = []
     edge_index_list = []
-    for pil_img, seg in zip(batch["image"], batch["slic"]):
+    for pil_img, seg in zip(batch["image"], batch["superpixels"]):
         img_np = np.array(pil_img.convert("RGB"))
         seg_np = np.array(seg)
         nf, ei = superpixels_to_graph(img_np, seg_np)
@@ -119,7 +132,7 @@ def graph_convert_example():
 
     # Save images
     first_img = np.array(dataset["train"][0]["image"].convert("RGB"))
-    first_seg = np.array(dataset["train"][0]["slic"])
+    first_seg = np.array(dataset["train"][0]["superpixels"])
 
     node_features, edge_index = superpixels_to_graph(first_img, first_seg)
     print("Node features shape:", node_features.shape)  # (num_superpixels, 5)
@@ -135,7 +148,7 @@ def graph_convert_example():
 
     # Panel 2 – SLIC boundaries
     axes[1].imshow(mark_boundaries(first_img, first_seg, color=(1, 1, 0)))
-    axes[1].set_title(f"SLIC Superpixels ({first_seg.max() + 1})")
+    axes[1].set_title(f"Superpixels ({first_seg.max() + 1})")
     axes[1].axis("off")
 
     # Panel 3 – graph overlaid on image

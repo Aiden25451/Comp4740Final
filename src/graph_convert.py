@@ -1,3 +1,4 @@
+from matplotlib.pyplot import gray
 import numpy as np
 from pyarrow import dataset
 from pyarrow import dataset
@@ -9,6 +10,23 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 from torch_geometric.data import Data
+from skimage.feature import local_binary_pattern
+
+
+def compute_lbp_hist(gray, segments, num_sp, P=8, R=1, bins=10):
+    # Ensure grayscale is 2D uint8
+    gray = np.squeeze(gray).astype(np.uint8)
+
+    lbp = local_binary_pattern(gray, P=P, R=R, method="uniform")
+    hist = np.zeros((num_sp, bins), dtype=np.float32)
+
+    for sp in range(num_sp):
+        mask = segments == sp
+        vals = lbp[mask].astype(int)
+        h, _ = np.histogram(vals, bins=bins, range=(0, bins), density=True)
+        hist[sp] = h
+
+    return hist
 
 
 def superpixel_features(img, segments):
@@ -37,19 +55,10 @@ def superpixel_features(img, segments):
     cy = cy_sum / counts / h
 
     # grayscale variance per superpixel (texture cue)
-    gray = img.mean(axis=2).astype(np.float32) / 255.0
-    flat_gray = gray.ravel()
+    gray = img.mean(axis=2).astype(np.uint8)
+    lbp_hist = compute_lbp_hist(gray, segments, num_sp)
 
-    gray_sum = np.zeros(num_sp, dtype=np.float32)
-    gray_sq_sum = np.zeros(num_sp, dtype=np.float32)
-
-    np.add.at(gray_sum, flat_seg, flat_gray)
-    np.add.at(gray_sq_sum, flat_seg, flat_gray**2)
-
-    mean_gray = gray_sum / counts
-    var_gray = gray_sq_sum / counts - mean_gray**2
-
-    return np.column_stack([mean_rgb, cx, cy, var_gray])
+    return np.column_stack([mean_rgb, cx, cy, lbp_hist])
 
 
 def superpixels_to_graph(img, segments):

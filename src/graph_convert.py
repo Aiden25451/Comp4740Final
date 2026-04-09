@@ -10,7 +10,39 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 from torch_geometric.data import Data
-from skimage.feature import local_binary_pattern
+from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
+
+
+def compute_glcm_features(gray, segments, num_sp):
+    glcm_feats = np.zeros(
+        (num_sp, 4), dtype=np.float32
+    )  # contrast, homogeneity, energy, entropy
+
+    for sp in range(num_sp):
+        mask = segments == sp
+        patch = gray[mask].astype(np.uint8)
+
+        if len(patch) < 5:  # too small
+            continue
+
+        # Build GLCM on the flattened patch
+        glcm = graycomatrix(
+            patch.reshape(-1, 1),
+            distances=[1],
+            angles=[0],
+            levels=256,
+            symmetric=True,
+            normed=True,
+        )
+
+        contrast = graycoprops(glcm, "contrast")[0, 0]
+        homogeneity = graycoprops(glcm, "homogeneity")[0, 0]
+        energy = graycoprops(glcm, "energy")[0, 0]
+        entropy = -np.sum(glcm * np.log2(glcm + 1e-10))
+
+        glcm_feats[sp] = [contrast, homogeneity, energy, entropy]
+
+    return glcm_feats
 
 
 def compute_lbp_hist(gray, segments, num_sp, P=8, R=1, bins=10):
@@ -57,8 +89,9 @@ def superpixel_features(img, segments):
     # grayscale variance per superpixel (texture cue)
     gray = img.mean(axis=2).astype(np.uint8)
     lbp_hist = compute_lbp_hist(gray, segments, num_sp)
+    glcm_feats = compute_glcm_features(gray, segments, num_sp)
 
-    return np.column_stack([mean_rgb, cx, cy, lbp_hist])
+    return np.column_stack([mean_rgb, cx, cy, lbp_hist, glcm_feats])
 
 
 def superpixels_to_graph(img, segments):

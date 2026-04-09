@@ -80,7 +80,7 @@ def main():
     test_loader = DataLoader(test_data, batch_size=config["batch_size"], shuffle=False)
 
     # ── 3. Model ──────────────────────────────────────────────────────────
-    model = SimpleGNN(in_channels=15, hidden=64, num_classes=4).to(device)
+    model = SimpleGNN(in_channels=19, hidden=64, num_classes=4).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
     criterion = nn.CrossEntropyLoss()
 

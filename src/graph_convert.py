@@ -11,33 +11,59 @@ import networkx as nx
 import torch
 from torch_geometric.data import Data
 from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
+from skimage.measure import regionprops
+
+
+def compute_geometry_features(segments, num_sp):
+    # regionprops expects labels starting at 1
+    props = regionprops(segments + 1)
+
+    geom = np.zeros((num_sp, 2), dtype=np.float32)
+
+    for sp in range(num_sp):
+        p = props[sp]
+
+        area = p.area
+        solidity = p.solidity
+
+        geom[sp] = [
+            area,
+            solidity,
+        ]
+
+    return geom
 
 
 def compute_glcm_features(gray, segments, num_sp):
-    glcm_feats = np.zeros(
-        (num_sp, 4), dtype=np.float32
-    )  # contrast, homogeneity, energy, entropy
+    # 4 orientations used in the paper
+    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
+
+    glcm_feats = np.zeros((num_sp, 4), dtype=np.float32)
+    # contrast, homogeneity, energy, entropy
 
     for sp in range(num_sp):
         mask = segments == sp
         patch = gray[mask].astype(np.uint8)
 
-        if len(patch) < 5:  # too small
+        if len(patch) < 5:
             continue
 
-        # Build GLCM on the flattened patch
+        # Build GLCM for all 4 angles
         glcm = graycomatrix(
             patch.reshape(-1, 1),
             distances=[1],
-            angles=[0],
+            angles=angles,
             levels=256,
             symmetric=True,
             normed=True,
         )
 
-        contrast = graycoprops(glcm, "contrast")[0, 0]
-        homogeneity = graycoprops(glcm, "homogeneity")[0, 0]
-        energy = graycoprops(glcm, "energy")[0, 0]
+        # Average Haralick features across angles
+        contrast = graycoprops(glcm, "contrast").mean()
+        homogeneity = graycoprops(glcm, "homogeneity").mean()
+        energy = graycoprops(glcm, "energy").mean()
+
+        # Entropy must be computed manually
         entropy = -np.sum(glcm * np.log2(glcm + 1e-10))
 
         glcm_feats[sp] = [contrast, homogeneity, energy, entropy]
@@ -61,37 +87,49 @@ def compute_lbp_hist(gray, segments, num_sp, P=8, R=1, bins=10):
     return hist
 
 
-def superpixel_features(img, segments):
-    num_sp = segments.max() + 1
+def compute_color_and_centroids(img, segments, num_sp):
+    """Compute mean RGB + normalized centroid per superpixel."""
     h, w = segments.shape
 
     flat_seg = segments.ravel()
     flat_img = img.reshape(-1, 3).astype(np.float32) / 255.0
 
-    # sum RGB and pixel counts per superpixel
     rgb_sum = np.zeros((num_sp, 3), dtype=np.float32)
     counts = np.zeros(num_sp, dtype=np.float32)
+
     np.add.at(rgb_sum, flat_seg, flat_img)
     np.add.at(counts, flat_seg, 1)
 
     mean_rgb = rgb_sum / counts[:, None]
 
-    # centroids
     ys, xs = np.mgrid[0:h, 0:w]
     cx_sum = np.zeros(num_sp, dtype=np.float32)
     cy_sum = np.zeros(num_sp, dtype=np.float32)
+
     np.add.at(cx_sum, flat_seg, xs.ravel())
     np.add.at(cy_sum, flat_seg, ys.ravel())
 
     cx = cx_sum / counts / w
     cy = cy_sum / counts / h
 
-    # grayscale variance per superpixel (texture cue)
-    gray = img.mean(axis=2).astype(np.uint8)
-    lbp_hist = compute_lbp_hist(gray, segments, num_sp)
-    glcm_feats = compute_glcm_features(gray, segments, num_sp)
+    return mean_rgb, cx, cy
 
-    return np.column_stack([mean_rgb, cx, cy, lbp_hist, glcm_feats])
+
+def superpixel_features(img, segments):
+    """Return a clean feature matrix for all superpixels."""
+    num_sp = segments.max() + 1
+
+    # Basic grayscale
+    gray = img.mean(axis=2).astype(np.uint8)
+
+    # Modular feature calls
+    mean_rgb, cx, cy = compute_color_and_centroids(img, segments, num_sp)
+    lbp_hist = compute_lbp_hist(gray, segments, num_sp)
+    # glcm_feats = compute_glcm_features(gray, segments, num_sp)
+    # geom_feats = compute_geometry_features(segments, num_sp)
+
+    # Stack everything
+    return np.column_stack([mean_rgb, cx, cy, lbp_hist])
 
 
 def superpixels_to_graph(img, segments):

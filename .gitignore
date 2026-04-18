@@ -1,2 +1,98 @@
-.venv
-output
+# ----------------------
+# Python basics
+# ----------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ----------------------
+# Virtual environments
+# ----------------------
+venv/
+.env/
+.envrc
+
+# ----------------------
+# Jupyter / notebooks
+# ----------------------
+.ipynb_checkpoints/
+
+# ----------------------
+# Logs / temp files
+# ----------------------
+*.log
+*.tmp
+*.out
+
+# ----------------------
+# OS files
+# ----------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------
+# IDEs / editors
+# ----------------------
+.vscode/
+.idea/
+
+# ----------------------
+# Python packaging
+# ----------------------
+build/
+dist/
+*.egg-info/
+
+# ----------------------
+# Dataset caches (HuggingFace, etc.)
+# ----------------------
+.cache/
+datasets/
+hf_cache/
+~/.cache/huggingface/
+
+# ----------------------
+# Model checkpoints / weights
+# ----------------------
+*.pt
+*.pth
+*.ckpt
+
+# ----------------------
+# Generated outputs (videos, images, etc.)
+# ----------------------
+output/
+outputs/
+results/
+runs/
+logs/
+
+# ----------------------
+# Matplotlib / plots
+# ----------------------
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# ----------------------
+# Config secrets
+# ----------------------
+.env
+config_local.py
+
+# ----------------------
+# PyTorch Geometric temp
+# ----------------------
+processed/
+raw/
+
+# ----------------------
+# Misc large files
+# ----------------------
+*.zip
+*.tar
+*.gz
+*.7z

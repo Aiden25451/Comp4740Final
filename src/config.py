@@ -8,6 +8,10 @@ config = {
     "lr": 1e-3,
 
     # NEW
-    "num_proc": 8,  # lower this if your PC is weak
-    "superpixel_method": "felzenszwalb",  # "slic", "felzenszwalb", "quickshift"
+    "num_proc": 8,
+    "superpixel_method": "lsc",  # "slic", "felzenszwalb", "quickshift" , "LSC"
+
+    # LSC params
+    "lsc_ratio": 0.075,
+    "lsc_iterations": 10,
 }

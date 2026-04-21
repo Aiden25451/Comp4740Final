@@ -14,63 +14,6 @@ from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
 from skimage.measure import regionprops
 
 
-def compute_geometry_features(segments, num_sp):
-    # regionprops expects labels starting at 1
-    props = regionprops(segments + 1)
-
-    geom = np.zeros((num_sp, 2), dtype=np.float32)
-
-    for sp in range(num_sp):
-        p = props[sp]
-
-        area = p.area
-        solidity = p.solidity
-
-        geom[sp] = [
-            area,
-            solidity,
-        ]
-
-    return geom
-
-
-def compute_glcm_features(gray, segments, num_sp):
-    # 4 orientations used in the paper
-    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
-
-    glcm_feats = np.zeros((num_sp, 4), dtype=np.float32)
-    # contrast, homogeneity, energy, entropy
-
-    for sp in range(num_sp):
-        mask = segments == sp
-        patch = gray[mask].astype(np.uint8)
-
-        if len(patch) < 5:
-            continue
-
-        # Build GLCM for all 4 angles
-        glcm = graycomatrix(
-            patch.reshape(-1, 1),
-            distances=[1],
-            angles=angles,
-            levels=256,
-            symmetric=True,
-            normed=True,
-        )
-
-        # Average Haralick features across angles
-        contrast = graycoprops(glcm, "contrast").mean()
-        homogeneity = graycoprops(glcm, "homogeneity").mean()
-        energy = graycoprops(glcm, "energy").mean()
-
-        # Entropy must be computed manually
-        entropy = -np.sum(glcm * np.log2(glcm + 1e-10))
-
-        glcm_feats[sp] = [contrast, homogeneity, energy, entropy]
-
-    return glcm_feats
-
-
 def compute_lbp_hist(gray, segments, num_sp, P=8, R=1, bins=10):
     # Ensure grayscale is 2D uint8
     gray = np.squeeze(gray).astype(np.uint8)
@@ -125,8 +68,6 @@ def superpixel_features(img, segments):
     # Modular feature calls
     mean_rgb, cx, cy = compute_color_and_centroids(img, segments, num_sp)
     lbp_hist = compute_lbp_hist(gray, segments, num_sp)
-    # glcm_feats = compute_glcm_features(gray, segments, num_sp)
-    # geom_feats = compute_geometry_features(segments, num_sp)
 
     # Stack everything
     return np.column_stack([mean_rgb, cx, cy, lbp_hist])

@@ -207,4 +207,5 @@ def graph_convert_example():
     print("Saved → output/graph_viz.png")
 
 
-graph_convert_example()
+if __name__ == "__main__":
+    graph_convert_example()

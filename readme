@@ -1,0 +1,58 @@
+Run the training pipeline:
+
+python train.py
+🔁 Switching Superpixel Methods
+
+Edit config.py:
+
+"superpixel_method": "slic"
+
+Options:
+
+"slic"
+"felzenszwalb"
+"quickshift"
+
+Run separately for each method to compare results.
+
+⚡ Configuration
+
+Example config.py:
+
+config = {
+    "dataset_name": "Simezu/brain-tumour-MRI-scan",
+    "train_size": 4000,
+    "test_size": 1500,
+    "segments": 128,
+    "batch_size": 32,
+    "epochs": 60,
+    "lr": 1e-3,
+    "num_proc": 4,
+    "superpixel_method": "slic",
+}
+For faster testing:
+"train_size": 500,
+"test_size": 100,
+"segments": 64,
+"epochs": 10,
+📊 Output
+
+During training, the model prints:
+
+Epoch | Loss   | Test Acc
+------+--------+---------
+  1   | 1.23   | 0.45
+  ...
+
+Use this to compare performance across methods.
+
+Optional: To actually see the superpixel it produces, run test_visual.py and check the output folder.
+
+
+Outputs:
+
+output/original.png
+output/superpixels.png
+
+
+

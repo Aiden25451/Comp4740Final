@@ -1,3 +1,4 @@
+from matplotlib.pyplot import gray
 import numpy as np
 from pyarrow import dataset
 from pyarrow import dataset
@@ -9,47 +10,67 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 from torch_geometric.data import Data
+from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
+from skimage.measure import regionprops
 
 
-def superpixel_features(img, segments):
-    num_sp = segments.max() + 1
+def compute_lbp_hist(gray, segments, num_sp, P=8, R=1, bins=10):
+    # Ensure grayscale is 2D uint8
+    gray = np.squeeze(gray).astype(np.uint8)
+
+    lbp = local_binary_pattern(gray, P=P, R=R, method="uniform")
+    hist = np.zeros((num_sp, bins), dtype=np.float32)
+
+    for sp in range(num_sp):
+        mask = segments == sp
+        vals = lbp[mask].astype(int)
+        h, _ = np.histogram(vals, bins=bins, range=(0, bins), density=True)
+        hist[sp] = h
+
+    return hist
+
+
+def compute_color_and_centroids(img, segments, num_sp):
+    """Compute mean RGB + normalized centroid per superpixel."""
     h, w = segments.shape
 
     flat_seg = segments.ravel()
     flat_img = img.reshape(-1, 3).astype(np.float32) / 255.0
 
-    # sum RGB and pixel counts per superpixel
     rgb_sum = np.zeros((num_sp, 3), dtype=np.float32)
     counts = np.zeros(num_sp, dtype=np.float32)
+
     np.add.at(rgb_sum, flat_seg, flat_img)
     np.add.at(counts, flat_seg, 1)
 
     mean_rgb = rgb_sum / counts[:, None]
 
-    # centroids
     ys, xs = np.mgrid[0:h, 0:w]
     cx_sum = np.zeros(num_sp, dtype=np.float32)
     cy_sum = np.zeros(num_sp, dtype=np.float32)
+
     np.add.at(cx_sum, flat_seg, xs.ravel())
     np.add.at(cy_sum, flat_seg, ys.ravel())
 
     cx = cx_sum / counts / w
     cy = cy_sum / counts / h
 
-    # grayscale variance per superpixel (texture cue)
-    gray = img.mean(axis=2).astype(np.float32) / 255.0
-    flat_gray = gray.ravel()
+    return mean_rgb, cx, cy
 
-    gray_sum = np.zeros(num_sp, dtype=np.float32)
-    gray_sq_sum = np.zeros(num_sp, dtype=np.float32)
 
-    np.add.at(gray_sum, flat_seg, flat_gray)
-    np.add.at(gray_sq_sum, flat_seg, flat_gray**2)
+def superpixel_features(img, segments):
+    """Return a clean feature matrix for all superpixels."""
+    num_sp = segments.max() + 1
 
-    mean_gray = gray_sum / counts
-    var_gray = gray_sq_sum / counts - mean_gray**2
+    # Basic grayscale
+    gray = img.mean(axis=2).astype(np.uint8)
 
-    return np.column_stack([mean_rgb, cx, cy, var_gray])
+    # Modular feature calls
+    mean_rgb, cx, cy = compute_color_and_centroids(img, segments, num_sp)
+    lbp_hist = compute_lbp_hist(gray, segments, num_sp)
+
+    # Stack everything
+    return np.column_stack([mean_rgb, cx, cy, lbp_hist])
 
 
 def superpixels_to_graph(img, segments):

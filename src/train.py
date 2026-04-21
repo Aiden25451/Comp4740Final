@@ -88,8 +88,8 @@ def main():
     train_loader = DataLoader(train_data, batch_size=config["batch_size"], shuffle=True)
     test_loader = DataLoader(test_data, batch_size=config["batch_size"], shuffle=False)
 
-    # Model
-    model = SimpleGNN(in_channels=6, hidden=64, num_classes=4).to(device)
+    # ── 3. Model ──────────────────────────────────────────────────────────
+    model = SimpleGNN(in_channels=15, hidden=64, num_classes=4).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
     criterion = nn.CrossEntropyLoss()
 

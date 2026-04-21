@@ -6,10 +6,8 @@ config = {
     "batch_size": 32,
     "epochs": 400,
     "lr": 1e-3,
-
-    # NEW
     "num_proc": 8,
-    "superpixel_method": "felzenszwalb",  # "slic", "felzenszwalb", "quickshift" , "LSC"
+    "superpixel_method": "lsc",  # "slic", "felzenszwalb", "quickshift" , "LSC"
 
     # LSC params
     "lsc_ratio": 0.075,

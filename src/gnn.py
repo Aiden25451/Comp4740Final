@@ -1,4 +1,8 @@
 # model.py
+"""
+Simple GNN was heavily inspired by the PyG starting example
+https://pytorch-geometric.readthedocs.io/en/latest/get_started/introduction.html
+"""
 import torch.nn as nn
 from torch_geometric.nn import GCNConv, global_mean_pool
 
